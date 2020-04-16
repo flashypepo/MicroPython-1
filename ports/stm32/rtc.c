@@ -383,7 +383,7 @@ STATIC HAL_StatusTypeDef PYB_RTC_MspInit_Finalise(RTC_HandleTypeDef *hrtc) {
         #endif
         uint32_t tickstart = rtc_startup_tick;
         while (__HAL_RCC_GET_FLAG(RCC_FLAG_LSERDY) == RESET) {
-            if ((HAL_GetTick() - tickstart ) > timeout) {
+            if ((HAL_GetTick() - tickstart) > timeout) {
                 return HAL_TIMEOUT;
             }
         }
@@ -391,7 +391,7 @@ STATIC HAL_StatusTypeDef PYB_RTC_MspInit_Finalise(RTC_HandleTypeDef *hrtc) {
         // we now have to wait for LSI ready or timeout
         uint32_t tickstart = rtc_startup_tick;
         while (__HAL_RCC_GET_FLAG(RCC_FLAG_LSIRDY) == RESET) {
-            if ((HAL_GetTick() - tickstart ) > MICROPY_HW_RTC_LSI_TIMEOUT_MS) {
+            if ((HAL_GetTick() - tickstart) > MICROPY_HW_RTC_LSI_TIMEOUT_MS) {
                 return HAL_TIMEOUT;
             }
         }
@@ -609,7 +609,7 @@ mp_obj_t pyb_rtc_wakeup(size_t n_args, const mp_obj_t *args) {
                     wut -= 0x10000;
                     if (wut > 0x10000) {
                         // wut still too large
-                        mp_raise_ValueError("wakeup value too large");
+                        mp_raise_ValueError(MP_ERROR_TEXT("wakeup value too large"));
                     }
                 }
             }
@@ -726,10 +726,10 @@ mp_obj_t pyb_rtc_calibration(size_t n_args, const mp_obj_t *args) {
                 }
                 return mp_obj_new_int(cal & 1);
             } else {
-                mp_raise_ValueError("calibration value out of range");
+                mp_raise_ValueError(MP_ERROR_TEXT("calibration value out of range"));
             }
             #else
-            mp_raise_ValueError("calibration value out of range");
+            mp_raise_ValueError(MP_ERROR_TEXT("calibration value out of range"));
             #endif
         }
         if (cal > 0) {

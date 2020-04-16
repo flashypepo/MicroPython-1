@@ -177,7 +177,7 @@ STATIC mp_obj_t machine_sdcard_make_new(const mp_obj_type_t *type, size_t n_args
 
     int slot_num = arg_vals[ARG_slot].u_int;
     if (slot_num < 0 || slot_num > 3) {
-        mp_raise_ValueError("Slot number must be between 0 and 3 inclusive");
+        mp_raise_ValueError(MP_ERROR_TEXT("slot number must be between 0 and 3 inclusive"));
     }
 
     // Slots 0 and 1 are native SD/MMC, slots 2 and 3 are SPI
@@ -253,7 +253,7 @@ STATIC mp_obj_t machine_sdcard_make_new(const mp_obj_type_t *type, size_t n_args
         if (width == 1 || width == 4 || (width == 8 && slot_num == 0)) {
             slot_config.width = width;
         } else {
-            mp_raise_ValueError("Width must be 1 or 4 (or 8 on slot 0)");
+            mp_raise_ValueError(MP_ERROR_TEXT("width must be 1 or 4 (or 8 on slot 0)"));
         }
 
         DEBUG_printf("  Calling init_slot()");
@@ -285,7 +285,7 @@ STATIC mp_obj_t sd_info(mp_obj_t self_in) {
     // so. For the most part people only care about the card size and
     // block size.
 
-    check_esp_err(sdcard_ensure_card_init((sdcard_card_obj_t *) self, false));
+    check_esp_err(sdcard_ensure_card_init((sdcard_card_obj_t *)self, false));
 
     uint32_t log_block_nbr = self->card.csd.capacity;
     uint32_t log_block_size = _SECTOR_SIZE(self);
@@ -303,13 +303,13 @@ STATIC mp_obj_t machine_sdcard_readblocks(mp_obj_t self_in, mp_obj_t block_num, 
     mp_buffer_info_t bufinfo;
     esp_err_t err;
 
-    err = sdcard_ensure_card_init((sdcard_card_obj_t *) self, false);
+    err = sdcard_ensure_card_init((sdcard_card_obj_t *)self, false);
     if (err != ESP_OK) {
         return false;
     }
 
     mp_get_buffer_raise(buf, &bufinfo, MP_BUFFER_WRITE);
-    err = sdmmc_read_sectors(&(self->card), bufinfo.buf, mp_obj_get_int(block_num), bufinfo.len / _SECTOR_SIZE(self) );
+    err = sdmmc_read_sectors(&(self->card), bufinfo.buf, mp_obj_get_int(block_num), bufinfo.len / _SECTOR_SIZE(self));
 
     return mp_obj_new_bool(err == ESP_OK);
 }
@@ -320,13 +320,13 @@ STATIC mp_obj_t machine_sdcard_writeblocks(mp_obj_t self_in, mp_obj_t block_num,
     mp_buffer_info_t bufinfo;
     esp_err_t err;
 
-    err = sdcard_ensure_card_init((sdcard_card_obj_t *) self, false);
+    err = sdcard_ensure_card_init((sdcard_card_obj_t *)self, false);
     if (err != ESP_OK) {
         return false;
     }
 
     mp_get_buffer_raise(buf, &bufinfo, MP_BUFFER_READ);
-    err = sdmmc_write_sectors(&(self->card), bufinfo.buf, mp_obj_get_int(block_num), bufinfo.len / _SECTOR_SIZE(self) );
+    err = sdmmc_write_sectors(&(self->card), bufinfo.buf, mp_obj_get_int(block_num), bufinfo.len / _SECTOR_SIZE(self));
 
     return mp_obj_new_bool(err == ESP_OK);
 }

@@ -37,6 +37,7 @@
 #include "py/gc.h"
 #include "py/mphal.h"
 #include "extmod/virtpin.h"
+#include "ets_alt_task.h"
 #include "modmachine.h"
 
 #define GET_TRIGGER(phys_port) \
@@ -103,28 +104,31 @@ void pin_init0(void) {
 }
 
 void pin_intr_handler(uint32_t status) {
-    mp_sched_lock();
-    gc_lock();
     status &= 0xffff;
     for (int p = 0; status; ++p, status >>= 1) {
         if (status & 1) {
             mp_obj_t handler = MP_STATE_PORT(pin_irq_handler)[p];
             if (handler != MP_OBJ_NULL) {
                 if (pin_irq_is_hard[p]) {
+                    int orig_ets_loop_iter_disable = ets_loop_iter_disable;
+                    ets_loop_iter_disable = 1;
+                    mp_sched_lock();
+                    gc_lock();
                     mp_call_function_1_protected(handler, MP_OBJ_FROM_PTR(&pyb_pin_obj[p]));
+                    gc_unlock();
+                    mp_sched_unlock();
+                    ets_loop_iter_disable = orig_ets_loop_iter_disable;
                 } else {
                     mp_sched_schedule(handler, MP_OBJ_FROM_PTR(&pyb_pin_obj[p]));
                 }
             }
         }
     }
-    gc_unlock();
-    mp_sched_unlock();
 }
 
 pyb_pin_obj_t *mp_obj_get_pin_obj(mp_obj_t pin_in) {
     if (mp_obj_get_type(pin_in) != &pyb_pin_type) {
-        mp_raise_ValueError("expecting a pin");
+        mp_raise_ValueError(MP_ERROR_TEXT("expecting a pin"));
     }
     pyb_pin_obj_t *self = pin_in;
     return self;
@@ -279,7 +283,7 @@ STATIC mp_obj_t pyb_pin_obj_init_helper(pyb_pin_obj_t *self, size_t n_args, cons
         // only pull-down seems to be supported by the hardware, and
         // we only expose pull-up behaviour in software
         if (pull != GPIO_PULL_NONE) {
-            mp_raise_ValueError("Pin(16) doesn't support pull");
+            mp_raise_ValueError(MP_ERROR_TEXT("Pin(16) doesn't support pull"));
         }
     } else {
         PIN_FUNC_SELECT(self->periph, self->func);
@@ -318,7 +322,7 @@ mp_obj_t mp_pin_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, 
         pin = (pyb_pin_obj_t *)&pyb_pin_obj[wanted_pin];
     }
     if (pin == NULL || pin->base.type == NULL) {
-        mp_raise_ValueError("invalid pin");
+        mp_raise_ValueError(MP_ERROR_TEXT("invalid pin"));
     }
 
     if (n_args > 1 || n_kw > 0) {
@@ -384,7 +388,7 @@ STATIC mp_obj_t pyb_pin_irq(size_t n_args, const mp_obj_t *pos_args, mp_map_t *k
     mp_arg_parse_all(n_args - 1, pos_args + 1, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
 
     if (self->phys_port >= 16) {
-        mp_raise_msg(&mp_type_OSError, "pin does not have IRQ capabilities");
+        mp_raise_msg(&mp_type_OSError, MP_ERROR_TEXT("pin does not have IRQ capabilities"));
     }
 
     if (n_args > 1 || kw_args->used != 0) {

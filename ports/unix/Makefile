@@ -44,10 +44,18 @@ CFLAGS += $(INC) $(CWARN) -std=gnu99 -DUNIX $(CFLAGS_MOD) $(COPT) -I$(VARIANT_DI
 
 # Debugging/Optimization
 ifdef DEBUG
-CFLAGS += -g
-COPT = -O0
+COPT ?= -O0
 else
-COPT = -Os -fdata-sections -ffunction-sections -DNDEBUG
+COPT ?= -Os
+COPT += -fdata-sections -ffunction-sections
+COPT += -DNDEBUG
+endif
+
+# Always enable symbols -- They're occasionally useful, and don't make it into the
+# final .bin/.hex/.dfu so the extra size doesn't matter.
+CFLAGS += -g
+
+ifndef DEBUG
 # _FORTIFY_SOURCE is a feature in gcc/glibc which is intended to provide extra
 # security for detecting buffer overflows. Some distros (Ubuntu at the very least)
 # have it enabled by default.
@@ -160,7 +168,6 @@ SRC_C = \
 	unix_mphal.c \
 	mpthreadport.c \
 	input.c \
-	file.c \
 	modmachine.c \
 	modos.c \
 	moduos_vfs.c \
@@ -200,6 +207,12 @@ ifneq ($(FROZEN_MANIFEST)$(FROZEN_DIR),)
 CFLAGS += -DMICROPY_MODULE_FROZEN_STR
 endif
 
+ifeq ($(MICROPY_FORCE_32BIT),1)
+RUN_TESTS_MPY_CROSS_FLAGS = --mpy-cross-flags='-mcache-lookup-bc -march=x86'
+else
+RUN_TESTS_MPY_CROSS_FLAGS = --mpy-cross-flags='-mcache-lookup-bc'
+endif
+
 include $(TOP)/py/mkrules.mk
 
 .PHONY: test test_full
@@ -213,8 +226,8 @@ test_full: $(PROG) $(TOP)/tests/run-tests
 	cd $(TOP)/tests && MICROPY_MICROPYTHON=../$(DIRNAME)/$(PROG) ./run-tests
 	cd $(TOP)/tests && MICROPY_MICROPYTHON=../$(DIRNAME)/$(PROG) ./run-tests -d thread
 	cd $(TOP)/tests && MICROPY_MICROPYTHON=../$(DIRNAME)/$(PROG) ./run-tests --emit native
-	cd $(TOP)/tests && MICROPY_MICROPYTHON=../$(DIRNAME)/$(PROG) ./run-tests --via-mpy -d basics float micropython
-	cd $(TOP)/tests && MICROPY_MICROPYTHON=../$(DIRNAME)/$(PROG) ./run-tests --via-mpy --emit native -d basics float micropython
+	cd $(TOP)/tests && MICROPY_MICROPYTHON=../$(DIRNAME)/$(PROG) ./run-tests --via-mpy $(RUN_TESTS_MPY_CROSS_FLAGS) -d basics float micropython
+	cd $(TOP)/tests && MICROPY_MICROPYTHON=../$(DIRNAME)/$(PROG) ./run-tests --via-mpy $(RUN_TESTS_MPY_CROSS_FLAGS) --emit native -d basics float micropython
 	cat $(TOP)/tests/basics/0prelim.py | ./$(PROG) | grep -q 'abc'
 
 test_gcov: test_full
@@ -253,7 +266,8 @@ PREFIX = /usr/local
 BINDIR = $(DESTDIR)$(PREFIX)/bin
 
 install: $(PROG)
-	install -D $(PROG) $(BINDIR)/$(PROG)
+	install -d $(BINDIR)
+	install $(PROG) $(BINDIR)/$(PROG)
 
 uninstall:
 	-rm $(BINDIR)/$(PROG)

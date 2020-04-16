@@ -61,7 +61,7 @@ static inline int msec_sleep_tv(struct timeval *tv) {
 #endif
 
 #if defined(MP_CLOCKS_PER_SEC)
-#define CLOCK_DIV (MP_CLOCKS_PER_SEC / 1000.0F)
+#define CLOCK_DIV (MP_CLOCKS_PER_SEC / MICROPY_FLOAT_CONST(1000.0))
 #else
 #error Unsupported clock() implementation
 #endif
@@ -84,7 +84,7 @@ STATIC mp_obj_t mod_time_clock(void) {
     // float cannot represent full range of int32 precisely, so we pre-divide
     // int to reduce resolution, and then actually do float division hoping
     // to preserve integer part resolution.
-    return mp_obj_new_float((float)(clock() / 1000) / CLOCK_DIV);
+    return mp_obj_new_float((mp_float_t)(clock() / 1000) / CLOCK_DIV);
     #else
     return mp_obj_new_int((mp_int_t)clock());
     #endif
@@ -117,10 +117,16 @@ STATIC mp_obj_t mod_time_sleep(mp_obj_t arg) {
     }
     RAISE_ERRNO(res, errno);
     #else
-    // TODO: Handle EINTR
-    MP_THREAD_GIL_EXIT();
-    sleep(mp_obj_get_int(arg));
-    MP_THREAD_GIL_ENTER();
+    int seconds = mp_obj_get_int(arg);
+    for (;;) {
+        MP_THREAD_GIL_EXIT();
+        seconds = sleep(seconds);
+        MP_THREAD_GIL_ENTER();
+        if (seconds == 0) {
+            break;
+        }
+        mp_handle_pending(true);
+    }
     #endif
     return mp_const_none;
 }
@@ -168,7 +174,7 @@ STATIC mp_obj_t mod_time_mktime(mp_obj_t tuple) {
 
     // localtime generates a tuple of len 8. CPython uses 9, so we accept both.
     if (len < 8 || len > 9) {
-        mp_raise_TypeError("mktime needs a tuple of length 8 or 9");
+        mp_raise_TypeError(MP_ERROR_TEXT("mktime needs a tuple of length 8 or 9"));
     }
 
     struct tm time = {
@@ -186,7 +192,7 @@ STATIC mp_obj_t mod_time_mktime(mp_obj_t tuple) {
     }
     time_t ret = mktime(&time);
     if (ret == -1) {
-        mp_raise_msg(&mp_type_OverflowError, "invalid mktime usage");
+        mp_raise_msg(&mp_type_OverflowError, MP_ERROR_TEXT("invalid mktime usage"));
     }
     return mp_obj_new_int(ret);
 }
